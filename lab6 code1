@@ -4,22 +4,22 @@
 
 #define PRINT(s, v) {Serial.print(F(s)); Serial.print(v);}
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
-#define MAX_DEVICES 11
+#define MAX_DEVICES 3
 
 #define CLK_PIN 13
 #define DATA_PIN 11
 #define CS_PIN 10
 
-MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, DATA_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
 
 #define CHAR_SPACING 1
 
 #define BUF_SIZE 75
-char message[BUF_SIZE] = "Hello!";
+char message[BUF_SIZE] = "FAI:)";
 bool newMessageAvailable = true;
 
 void readSerial(void);
-void printText(void);
+void printText(uint8_t modStart, uint8_t modEnd, char *pMsg);
 
 void readSerial(void)
 { 
@@ -39,7 +39,7 @@ void readSerial(void)
   }
 }
 
-void printText(uint8_t modStart, uint8_t modEnd, char*pMsg)
+void printText(uint8_t modStart, uint8_t modEnd, char *pMsg)
 {
   uint8_t state = 0;
   uint8_t curLen;
@@ -56,15 +56,15 @@ void printText(uint8_t modStart, uint8_t modEnd, char*pMsg)
         case 0: 
             if (*pMsg == '\0')
             {
-                showLen = col - modEnd * COL_SIZE; 
+                showLen = col - (modEnd * COL_SIZE); 
                 state = 2;
                 break;
             }
 
-            showLen = mx.getChar(*pMsg++, sizeof(cBuf) / sizeof(cBuf[0]), cBuf);
+            showLen = mx.getChar(*pMsg++, sizeof(cBuf)/sizeof(cBuf[0]), cBuf);
             curLen = 0;
             state++;
-            break;
+          
 
         case 1: 
             mx.setColumn(col--, cBuf[curLen++]);
@@ -72,7 +72,7 @@ void printText(uint8_t modStart, uint8_t modEnd, char*pMsg)
             if (curLen == showLen)
             {
                 showLen = CHAR_SPACING;
-                state++;
+                state = 2;
             }
             break;
 
@@ -83,8 +83,8 @@ void printText(uint8_t modStart, uint8_t modEnd, char*pMsg)
 
         case 3: 
             mx.setColumn(col--, 0);
-
-            if (++curLen == showLen)
+            curLen++;
+            if (curLen == showLen)
                 state = 0;
             break;
 
@@ -99,7 +99,7 @@ void printText(uint8_t modStart, uint8_t modEnd, char*pMsg)
 void setup()
 {
     mx.begin();
-    Serial.begin(57600);
+    Serial.begin(9600);
     Serial.print("\n[MD_MAX72XX Message Display]\nType a message for the display\nEnd message line with a newline");
 }
 
@@ -113,3 +113,4 @@ void loop()
         newMessageAvailable = false;
     }
 }
+
