@@ -18,6 +18,9 @@ MD_MAX72XX mx = MD_MAX72XX(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 char message[BUF_SIZE] = "Hello!";
 bool newMessageAvailable = true;
 
+void readSerial(void);
+void printText(void);
+
 void readSerial(void)
 { 
   static uint8_t putIndex = 0;
@@ -27,7 +30,7 @@ void readSerial(void)
     message[putIndex] = (char)Serial.read();
     if((message[putIndex] == '\n') || (putIndex >= BUF_SIZE-3))
     {
-      message[putIndex] == '\0';
+      message[putIndex] = '\0';
       putIndex = 0;
       newMessageAvailable = true;
     }
