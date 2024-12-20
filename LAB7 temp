@@ -1,0 +1,49 @@
+#include <Arduino.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128 
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,  &Wire, OLED_RESET);
+
+double GetTemp(void);
+
+void setup() {
+  Serial.begin(9600);
+
+ if (!display.begin(SSD1306_SWITCHCAPVCC,0x3c)) {
+  Serial.println(F("SSD1306 allocation failed"));
+  for (;;);
+ }
+ display.clearDisplay();
+ display.setTextSize(1);
+ display.setTextColor(SSD1306_WHITE);
+ display.setCursor(0,10);
+ display.println("Internal Temp");
+ display.setCursor(50,35);
+ display.println(GetTemp());
+ display.display();
+}
+
+
+void loop() 
+{
+  Serial.println(GetTemp(), 1);
+  delay(1000);
+}
+double GetTemp(void)
+{
+  unsigned int wADC;
+  double t;
+
+  ADMUX = (_BV(REFS1) | _BV(REFS0) | _BV(MUX3));
+  ADCSRA |= _BV(ADEN);
+  delay(20);
+  ADCSRA |= _BV(ADSC);
+  while (bit_is_set(ADCSRA, ADSC));
+  wADC = ADCW;
+
+  t = (wADC - 324.31) / 1.22;
+  return (t);
+}
