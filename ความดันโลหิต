@@ -1,0 +1,63 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+
+int systolicPressure = 120;  
+int diastolicPressure = 80;  
+int heartRate = 72;          
+
+void setup() {
+  
+  if (!display.begin(SSD1306_SWITCHCAPVCC,0x3c)) { 
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;); 
+  }
+  display.clearDisplay();
+}
+
+void loop() {
+  display.clearDisplay();  
+
+  display.setTextSize(1);  
+  display.setTextColor(SSD1306_WHITE); 
+  display.setCursor(0, 0); 
+  display.println(F(" "));
+  
+  display.setTextSize(1);
+  display.setCursor(0, 5);
+  display.print(F("SYS: "));
+  display.setTextSize(2);
+  display.setCursor(25, 0);
+  display.print(systolicPressure);
+  display.println(F(" mmHg"));
+
+  display.setTextSize(1);
+  display.setCursor(0, 21);
+  display.print(F("DIA: "));
+  display.setTextSize(2);
+  display.setCursor(35, 16);
+  display.print(diastolicPressure);
+  display.println(F(" mmHg"));
+
+  display.setTextSize(1);
+  display.setCursor(0, 41);
+  display.print(F("HR: "));
+  display.setTextSize(2);
+  display.setCursor(35, 36);
+  display.print(heartRate);
+  display.println(F(" bpm"));
+
+  
+  display.display();
+
+  delay(1000);  
+}
