@@ -1,0 +1,89 @@
+#include <Arduino.h>
+#include <avr/interrupt.h>
+
+const int buttonPin = 2;
+const int ledPin = 13;
+volatile bool timerRunning = false;
+volatile unsigned long startTime = 0; // ตัวแปรจับเวลา
+volatile unsigned long lastDisplayedTime = 0; // เก็บเวลาล่าสุดที่แสดง
+volatile int lastMinuteAlert = -1; // เก็บนาทีล่าสุดที่แจ้งเตือน
+volatile int lastHourAlert = -1;   // เก็บชั่วโมงล่าสุดที่แจ้งเตือน
+
+void toggleTimer() {
+    timerRunning = !timerRunning;
+    
+    if (timerRunning) {
+        startTime = millis(); // เริ่มต้นจับเวลาใหม่
+        lastDisplayedTime = 0; // รีเซ็ตค่าแสดงผล
+        lastMinuteAlert = -1;  // รีเซ็ตการแจ้งเตือนนาที
+        lastHourAlert = -1;    // รีเซ็ตการแจ้งเตือนชั่วโมง
+    } else {
+        startTime = 0; // Reset เวลาเมื่อต้องการหยุด
+        digitalWrite(ledPin, LOW); // ปิด LED เมื่อหยุด
+    }
+}
+
+void setup() {
+    pinMode(ledPin, OUTPUT);
+    pinMode(buttonPin, INPUT_PULLUP);
+    Serial.begin(9600); // เปิดใช้งาน Serial Monitor
+    attachInterrupt(digitalPinToInterrupt(buttonPin), toggleTimer, FALLING);
+
+    cli(); // ปิดการขัดจังหวะทั้งหมด
+    TCCR1A = 0;
+    TCCR1B = (1 << WGM12); // ตั้งค่า CTC mode
+    TCCR1B |= (1 << CS12) | (1 << CS10); // ตั้งค่า Prescaler 1024
+    OCR1A = 15624; // ตั้งค่าช่วงเวลา 1 วินาที
+    TIMSK1 |= (1 << OCIE1A); // เปิดใช้งาน Timer1 Compare Match A Interrupt
+    sei(); // เปิดใช้งานการขัดจังหวะทั้งหมด
+}
+
+ISR(TIMER1_COMPA_vect) {
+    if (timerRunning) {
+        digitalWrite(ledPin, digitalRead(ledPin)); // กระพริบ LED
+    }
+}
+
+void loop() {
+    if (timerRunning) {
+        unsigned long elapsedTime = (millis() - startTime) / 1000; // แปลงเป็นวินาที
+        int hours = elapsedTime / 3600; // คำนวณจำนวนชั่วโมง
+        int minutes = (elapsedTime % 3600) / 60; // คำนวณจำนวนนาที
+        int seconds = elapsedTime % 60; // คำนวณจำนวนวินาทีที่เหลือ
+
+        // แสดงเวลาเฉพาะเมื่อค่ามีการเปลี่ยนแปลง
+        if (elapsedTime != lastDisplayedTime) {
+            Serial.print("Elapsed Time: ");
+            
+            if (hours < 10) Serial.print("0"); // เพิ่มเลข 0 ถ้าน้อยกว่า 10
+            Serial.print(hours);
+            Serial.print(":");
+            
+            if (minutes < 10) Serial.print("0");
+            Serial.print(minutes);
+            Serial.print(":");
+            
+            if (seconds < 10) Serial.print("0");
+            Serial.println(seconds);
+            
+            // บันทึกค่าที่แสดงไปล่าสุด
+            lastDisplayedTime = elapsedTime;
+
+            // แจ้งเตือนเมื่อครบ 1 นาที
+            if (minutes != lastMinuteAlert && seconds == 0) {
+                Serial.print("⏰ ครบ ");
+                Serial.print(minutes);
+                Serial.println(" นาที!");
+                lastMinuteAlert = minutes; // บันทึกว่านาทีนี้แจ้งเตือนแล้ว
+            }
+
+            // แจ้งเตือนเมื่อครบ 1 ชั่วโมง
+            if (hours != lastHourAlert && minutes == 0 && seconds == 0) {
+                Serial.print("⏰⏰ ครบ ");
+                Serial.print(hours);
+                Serial.println(" ชั่วโมง!!!");
+                lastHourAlert = hours; // บันทึกว่าชั่วโมงนี้แจ้งเตือนแล้ว
+            }
+        }
+    }
+}
