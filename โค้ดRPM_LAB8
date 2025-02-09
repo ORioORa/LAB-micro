@@ -1,0 +1,89 @@
+#include <Arduino.h>
+
+const int sensorPin = 2;  // ขาอินพุตสำหรับเซนเซอร์ (ใช้ขา Interrupt 0 = D2 บน Arduino Uno)
+volatile unsigned int pulseCount = 0; // ตัวแปรนับจำนวนพัลส์
+unsigned long lastTime = 0;
+unsigned long startTime = 0; // เวลาเริ่มต้น
+const int interval = 1000; // วัดค่าทุก 1 วินาที
+const int pulsesPerRevolution = 1; // จำนวนพัลส์ต่อการหมุน 1 รอบ (ปรับตามเซนเซอร์ที่ใช้)
+
+int lastMinuteAlert = -1; // ตัวแปรเก็บนาทีล่าสุดที่แจ้งเตือน
+float totalRPM = 0; // สะสมค่า RPM
+float sumRPM = 0; // ค่า RPM รวมใน 1 นาที
+int rpmCount = 0; // นับจำนวนค่าที่วัดได้ภายใน 1 นาที
+
+// ฟังก์ชัน Interrupt สำหรับนับพัลส์
+void countPulse() {
+    pulseCount++; // เพิ่มค่าพัลส์เมื่อเกิด Interrupt
+}
+
+void displayTime(unsigned long elapsedTime) {
+    int hours = elapsedTime / 3600;
+    int minutes = (elapsedTime % 3600) / 60;
+    int seconds = elapsedTime % 60;
+
+    Serial.print("Time: ");
+    if (hours < 10) Serial.print("0");
+    Serial.print(hours);
+    Serial.print(":");
+
+    if (minutes < 10) Serial.print("0");
+    Serial.print(minutes);
+    Serial.print(":");
+
+    if (seconds < 10) Serial.print("0");
+    Serial.println(seconds);
+}
+
+void setup() {
+    Serial.begin(9600);
+    pinMode(sensorPin, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(sensorPin), countPulse, RISING); // ใช้ Interrupt นับพัลส์ขาขึ้น
+    startTime = millis(); // บันทึกเวลาเริ่มต้น
+}
+
+void loop() {
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = (currentTime - startTime) / 1000; // เวลาที่ผ่านไปเป็นวินาที
+    
+    if (currentTime - lastTime >= interval) { // คำนวณทุก 1 วินาที
+        detachInterrupt(digitalPinToInterrupt(sensorPin)); // ปิด Interrupt ชั่วคราวขณะคำนวณ
+        float rpm = (pulseCount / (float)pulsesPerRevolution) * 60.0; // คำนวณ RPM
+        displayTime(elapsedTime); // แสดงเวลา
+        Serial.print("RPM: ");
+        Serial.println(rpm);
+
+        // สะสมค่า RPM
+        totalRPM += rpm;
+        sumRPM += rpm;
+        rpmCount++;
+
+        pulseCount = 0; // รีเซ็ตตัวนับพัลส์
+        lastTime = currentTime; // อัปเดตเวลาล่าสุด
+        attachInterrupt(digitalPinToInterrupt(sensorPin), countPulse, RISING); // เปิดใช้งาน Interrupt ใหม่
+    }
+
+    // แสดงค่า RPM รวมและเฉลี่ยทุก 1 นาที
+    int currentMinutes = elapsedTime / 60;
+    if (currentMinutes != lastMinuteAlert && elapsedTime % 60 == 0) {
+        float averageRPM = (rpmCount > 0) ? (totalRPM / rpmCount) : 0;
+        
+        Serial.print("⏰ ครบ ");
+        Serial.print(currentMinutes);
+        Serial.println(" นาที!");
+
+        displayTime(elapsedTime);
+        Serial.print("🔥 RPM รวมใน 1 นาที: ");
+        Serial.println(sumRPM);
+        Serial.print("⚡ RPM เฉลี่ยใน 1 นาที: ");
+        Serial.println(averageRPM);
+        Serial.println("⏳🔄");
+
+        // รีเซ็ตค่าการสะสมของ 1 นาที
+        totalRPM = 0;
+        sumRPM = 0;
+        rpmCount = 0;
+
+        lastMinuteAlert = currentMinutes;
+    }
+}
