@@ -1,0 +1,41 @@
+#include <Arduino.h>
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd(8,9,4,5,6,7);
+int analogPin = A0;
+
+int digatal_val = 0;
+float analog_val = 0;
+
+const int potpi= A0;
+
+String getButton(int adcValue){
+   if (adcValue < 100) return "RIGHT";
+   if (adcValue < 256) return "UP";
+   if (adcValue < 409) return "DOWN";
+   if (adcValue < 639) return "LEFT";
+   if (adcValue < 1022) return "SELECT";
+   return"NONE";
+}
+void setup(){
+   lcd.begin(16,2);
+   lcd.print("Button Test Ready");
+   delay(2000);
+
+}
+
+void loop(){
+   int adcValue = analogRead(analogPin);
+   String button = getButton ( adcValue);
+
+   lcd.clear();
+   lcd.setCursor(0, 0);
+   lcd.print("Button: ");
+   lcd.print(button);
+
+   lcd.setCursor(0, 1);
+   lcd.print("ADC: ");
+   lcd.print(adcValue);
+   
+   delay(500);
+}
