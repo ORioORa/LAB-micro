@@ -1,0 +1,60 @@
+#include <Arduino.h>
+#define DT 4
+#define SCK 5
+const int IN1 = 7;
+const int IN2 = 8;
+const int ENA = 9;
+long offset = 3410905;
+float scaleFactor = 40.0/16777216.0;
+
+long readHX710() {
+   long count = 0;
+   pinMode(DT, INPUT);
+   for (int i = 0; i<24; i++) {
+     digitalWrite(SCK, HIGH);
+     delayMicroseconds(1);
+     count = count << 1;
+     digitalWrite(SCK, LOW);
+     if (digitalRead(DT)) count++;
+  }
+  digitalWrite(SCK, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(SCK, LOW);
+  return count;
+
+}
+
+
+void setup() {
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENA, OUTPUT);
+
+  Serial.begin(9600);
+  pinMode(SCK, OUTPUT);
+
+}
+
+void loop() {
+  long rawValue = readHX710();
+  float pressure = 7.30+(rawValue - offset) * scaleFactor;
+
+  analogWrite(ENA, 200);
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  delay(3000);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  delay(1000);
+
+  Serial.print("Raw ADC Value: ");
+  Serial.print(rawValue);
+  Serial.print(" | Pressure: ");
+  Serial.print(pressure, 2);
+  Serial.println(" kPa");
+
+  delay(500);
+
+}
