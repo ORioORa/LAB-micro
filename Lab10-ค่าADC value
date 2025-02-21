@@ -1,0 +1,36 @@
+#include <Arduino.h>
+#define DT 4
+#define SCK 5
+
+long readHX710() {
+   long count = 0;
+   pinMode(DT, INPUT);
+   for (int i = 0; i<24; i++) {
+     digitalWrite(SCK, HIGH);
+     delayMicroseconds(1);
+     count = count << 1;
+     digitalWrite(SCK, LOW);
+     if (digitalRead(DT)) count++;
+  }
+  digitalWrite(SCK, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(SCK, LOW);
+  return count;
+
+}
+
+
+void setup() {
+
+  Serial.begin(9600);
+  pinMode(SCK, OUTPUT);
+
+}
+
+void loop() {
+  long rawValue = readHX710();
+  Serial.print("Raw ADC Value: ");
+  Serial.println(rawValue);
+  delay(500);
+
+}
