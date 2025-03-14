@@ -1,0 +1,168 @@
+#include <Arduino.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define DT 4
+#define SCK 5
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int IN1 = 7;
+const int IN2 = 8;
+const int ENA = 9;
+
+const int RELAY_PIN = 11;
+const int SWITCH_PIN = 6;  // พินสวิตช์ (Input)
+
+long offset = 4.0222;
+float scaleFactor = 40.0/16777216.0;
+
+long readHX710() {
+   long count = 0;
+   pinMode(DT, INPUT);
+   for (int i = 0; i<24; i++) {
+     digitalWrite(SCK, HIGH);
+     delayMicroseconds(1);
+     count = count << 1;
+     digitalWrite(SCK, LOW);
+     if (digitalRead(DT)) count++;
+  }
+  digitalWrite(SCK, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(SCK, LOW);
+  return count;
+
+}
+
+
+void setup() {
+  Serial.begin(9600);
+  if(!display.begin(SSD1306_SWITCHCAPVCC,0x3C)){
+    Serial.println(F("SSD1306 allocation failed"));
+    while (true); 
+  }
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.display();
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENA, OUTPUT);
+
+  pinMode(SCK, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(SWITCH_PIN, INPUT); // ตั้งค่าสวิตช์เป็น INPUT
+}
+
+void controlSolenoid(bool state) {
+  if (state) {
+      digitalWrite(IN1, HIGH);
+      digitalWrite(IN2, LOW);
+  } else {
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, LOW);
+      //pinMode(SWITCH_PIN, LOW);
+  }
+}
+
+void controlMotor(int speed) {
+  // ควบคุมมอเตอร์ด้วยความเร็วที่กำหนด (ค่า 0-255)
+  analogWrite(ENA, speed);
+}
+
+/*void releaseAir() {
+  Serial.println("Releasing air...");
+  digitalWrite(RELAY_PIN, HIGH); // เปิดรีเลย์เพื่อปล่อยลม
+  delay(3000); // ปล่อยลมเป็นเวลา 3 วินาที
+  digitalWrite(RELAY_PIN, LOW); // ปิดรีเลย์
+  Serial.println("Air released");
+}*/
+
+unsigned long pressureReachedTime = 0;
+unsigned long releaseTime = 0;
+bool isPressureHigh = false;  // ใช้บันทึกสถานะเมื่อแรงดันถึง 70
+bool isSolenoidClosed = false;  // ใช้บันทึกสถานะเมื่อโซลินอยด์ปิด
+bool isReleaseStarted = false;  // ใช้บันทึกสถานะการปล่อยลมออก
+bool isMotorStopped = false;  // ใช้บันทึกสถานะการหยุดมอเตอร์
+
+void loop() {
+
+   long rawValue = readHX710();
+   float pressure = ((rawValue * 1/77000)- offset);
+    // อ่านสถานะของสวิตช์ (HIGH เมื่อกด, LOW เมื่อปล่อย)
+   int switchState = digitalRead(SWITCH_PIN);
+    
+      // หากกดสวิตช์ ให้เริ่มทำงาน
+  if (switchState == HIGH ) {
+    controlSolenoid(true); 
+    controlMotor(150); 
+    digitalWrite(RELAY_PIN, HIGH);
+  }
+
+  // เมื่อแรงดันถึง 70 mmHg
+  if (pressure >= 75 && !isPressureHigh) {
+    isPressureHigh = true;
+    pressureReachedTime = millis();
+    controlSolenoid(false);  // ปิดโซลินอยด์ทันทีที่แรงดันถึง 70
+}
+
+// หากแรงดันยังคงอยู่ที่ 70 mmHg และเรายังคงไม่ผ่านเวลา 40 วินาที
+if (isPressureHigh && millis() - pressureReachedTime >= 0 && pressure >= 70) {
+    // ควรจะปิดโซลินอยด์
+    controlSolenoid(false);
+}
+
+// ถ้าแรงดันลดลงจาก 70 mmHg แล้ว จะเปิดโซลินอยด์เล็กน้อยเพื่อรักษาความดัน
+if (isPressureHigh && pressure < 80) {
+    controlSolenoid(true);  // เปิดโซลินอยด์เล็กน้อย
+}
+
+// ถ้าค่าความดันสูงกว่า 70 และเวลาผ่านไป 40 วินาที
+if (isPressureHigh && millis() - pressureReachedTime >= 40000) {
+  controlSolenoid(false);  // ปิดโซลินอยด์
+  //controlMotor(0);  // ปิดมอเตอร์
+  digitalWrite(RELAY_PIN, LOW);  // ปิดการทำงานของมอเตอร์
+  isPressureHigh = false;  // รีเซ็ตสถานะ
+}
+
+
+/*
+// ปล่อยลมออกหลังจาก 40 วินาที
+if (isReleaseStarted && millis() - releaseTime >= 0 && isMotorStopped) {
+    controlSolenoid(true);  // เปิดโซลินอยด์ปล่อยลมออก
+}*/
+
+
+    
+  //Serial.print("Raw ADC Value: ");
+  //Serial.println(rawValue);
+ 
+  /*display.clearDisplay();
+
+  display.setTextSize(1.5);
+  display.setCursor (0, 15);
+  display.println(F("RAW ADC: "));
+  display.setTextSize(1.5);
+  display.setCursor (60, 15);
+  display.print(rawValue);
+  display.setCursor (0, 35);
+  display.println(F("Pressure: "));
+  display.setTextSize(1.5);
+  display.setCursor (60, 35);
+  display.print(pressure);
+  display.println(F(" mmHg"));*/
+
+  //Serial.print("Raw ADC Value: ");
+  //Serial.print(rawValue);
+  //Serial.print(" | Pressure: ");
+  Serial.println(pressure, 2);
+  //Serial.println(" mmHg");
+
+  display.display();
+  delay(100);
+
+} 
