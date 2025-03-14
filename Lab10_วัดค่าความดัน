@@ -14,7 +14,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 const int IN1 = 7;
 const int IN2 = 8;
 const int ENA = 9;
-long offset = 8.0;
+long offset = 5.0222;
 float scaleFactor = 40.0/16777216.0;
 
 long readHX710() {
@@ -56,7 +56,7 @@ void setup() {
 void loop() {
 
   long rawValue = readHX710();
- float pressure = 5.0+((rawValue * 1/77000)- offset); //* scaleFactor; 
+ float pressure =((rawValue * 1/77000)- offset); //* scaleFactor; 
 
 
   display.clearDisplay();
@@ -74,14 +74,6 @@ void loop() {
   display.print(pressure);
   display.println(F(" mmHg"));
 
- 
-  /*display.setTextSize(0.5);
-  display.setCursor (70, 10);
-  display.print(rawValue);
- 
-  display.setTextSize(0.5);
-  display.setCursor (70, 30);
-  display.print(pressure);*/
   
 
 
